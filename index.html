@@ -536,7 +536,9 @@ input[type=text]:focus, input[type=number]:focus, select.form-select:focus { bor
 let state = { items: [], history: [], nextId: 1 };
 let editingId = null;
 let stockAction = null;
-let GAS_URL = '';
+// GAS URL（埋め込み済み - 変更不要）
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbyjf-yFlzvvfCv3sg7KAaz7PmkpcYt8hJidPYhnSKoRFqVAbA8NyFQuYEzStkF8FJj_/exec';
+let GAS_URL = DEFAULT_GAS_URL;
 
 // ===== STORAGE =====
 function saveLocal() { localStorage.setItem('inv_v3', JSON.stringify(state)); }
@@ -546,7 +548,8 @@ function loadLocal() {
   if (!state.items) state.items = [];
   if (!state.history) state.history = [];
   if (!state.nextId) state.nextId = 1;
-  GAS_URL = localStorage.getItem('gas_url') || '';
+  // 埋め込みURLを優先、なければlocalStorageから
+  GAS_URL = DEFAULT_GAS_URL || localStorage.getItem('gas_url') || '';
   if (GAS_URL) {
     document.getElementById('gasUrlInput').value = GAS_URL;
     setBannerConnected();
