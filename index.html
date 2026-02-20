@@ -995,8 +995,9 @@ function renderSummaryCategories() {
     const lowCount = catItems.filter(i=>getStockStatus(i)==='low').length;
     const ph = summaryPeriodHistory;
     const ids = catItems.map(i=>i.id);
-    const inQ = ph.filter(h=>ids.includes(h.itemId)&&h.type==='in').reduce((s,h)=>s+(h.qty||0),0);
-    const outQ = ph.filter(h=>ids.includes(h.itemId)&&h.type==='out').reduce((s,h)=>s+(h.qty||0),0);
+    const names = catItems.map(i=>i.name);
+    const inQ = ph.filter(h=>(ids.includes(h.itemId)||names.includes(h.itemName))&&h.type==='in').reduce((s,h)=>s+(h.qty||0),0);
+    const outQ = ph.filter(h=>(ids.includes(h.itemId)||names.includes(h.itemName))&&h.type==='out').reduce((s,h)=>s+(h.qty||0),0);
     const alertBadge = alertCount>0 ? `<span class="alert-tag" style="margin-left:6px">⚠ ${alertCount}</span>` : lowCount>0 ? `<span style="color:var(--warning);font-size:11px;font-weight:700;margin-left:6px">△ ${lowCount}</span>` : '';
     return `<div onclick="showSummaryItems('${esc(cat)}')" style="background:var(--surface);border:2px solid ${catDef.color}30;border-radius:12px;padding:18px;cursor:pointer;box-shadow:var(--shadow);transition:all 0.15s;" onmouseover="this.style.borderColor='${catDef.color}';this.style.boxShadow='var(--shadow-md)'" onmouseout="this.style.borderColor='${catDef.color}30';this.style.boxShadow='var(--shadow)'">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
@@ -1025,7 +1026,7 @@ function showSummaryItems(cat) {
   if (!catItems.length) { tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><p>商品がありません</p></div></td></tr>`; return; }
 
   tbody.innerHTML = catItems.map(item => {
-    const ih = ph.filter(h=>h.itemId===item.id);
+    const ih = ph.filter(h=>h.itemId===item.id||h.itemName===item.name);
     const inQ = ih.filter(h=>h.type==='in').reduce((s,h)=>s+(h.qty||0),0);
     const outQ = ih.filter(h=>h.type==='out').reduce((s,h)=>s+(h.qty||0),0);
     const diff = inQ - outQ;
