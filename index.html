@@ -836,21 +836,56 @@ async function confirmStock() {
   const note = document.getElementById('s_note').value.trim();
   if (!person) { toast('担当者名を入力してください', 'error'); return; }
   if (!qty || qty <= 0) { toast('数量を入力してください', 'error'); return; }
+
+  closeModal('stockModal');
+  const inp = document.getElementById((type==='in'?'in_':'out_')+id);
+  if (inp) inp.value = '';
+
+  if (GAS_URL) {
+    // GAS側でアトミックに最新在庫を取得して更新
+    toast('処理中...', 'info');
+    try {
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'text/plain'},
+        body: JSON.stringify({
+          action: 'stockUpdate',
+          itemId: id,
+          itemName: item.name,
+          type, qty, person, note,
+          alertThreshold: item.alertThreshold
+        }),
+        redirect: 'follow'
+      });
+      const text = await res.text();
+      let json; try { json = JSON.parse(text); } catch(e) { json = null; }
+
+      if (json && json.ok) {
+        // GASから返ってきた最新在庫でローカルを更新
+        const before = item.stock;
+        item.stock = json.newStock;
+        const h = {type, itemId:id, itemName:item.name, qty, before: json.latestStock, after: json.newStock, note, person, date:new Date().toISOString(), id:Date.now()};
+        state.history.unshift(h);
+        saveLocal();
+        renderStats(); renderInventory();
+        toast(type==='in'?`✅ 入庫: +${qty} ${item.unit||'個'} (${person})`:`📤 出庫: -${qty} ${item.unit||'個'} (${person})`, 'success');
+        return;
+      } else if (json && !json.ok) {
+        toast(`⚠ ${json.error || '更新に失敗しました'}`, 'error');
+        return;
+      }
+    } catch(e) {}
+  }
+
+  // GASなし or 失敗時はローカルで処理
   if (type==='out' && item.stock < qty) { toast('在庫が不足しています', 'error'); return; }
-  localStorage.setItem('last_person', person);
   const before = item.stock;
   item.stock += type==='in' ? qty : -qty;
   const h = {type, itemId:id, itemName:item.name, qty, before, after:item.stock, note, person, date:new Date().toISOString(), id:Date.now()};
   state.history.unshift(h);
   saveLocal();
-  closeModal('stockModal');
-  // clear qty inputs
-  const inp = document.getElementById((type==='in'?'in_':'out_')+id);
-  if (inp) inp.value = '';
   renderStats(); renderInventory();
   toast(type==='in'?`✅ 入庫: +${qty} ${item.unit||'個'} (${person})`:`📤 出庫: -${qty} ${item.unit||'個'} (${person})`, 'success');
-  await gasPost({action:'saveItem', ...item});
-  await gasPost({action:'addHistory', ...h});
 }
 
 // ===== ITEM MODAL =====
