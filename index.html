@@ -974,7 +974,7 @@ function renderSummaryCategories() {
   const yearSel = document.getElementById('summaryYear');
   const years = getPeriodYears();
   const curY = parseInt(yearSel.value) || getPeriodYear(new Date());
-  yearSel.innerHTML = years.map(y=>`<option value="${y}" ${y===curY?'selected':''}>${y}年度</option>`).join('');
+  yearSel.innerHTML = years.map(y=>`<option value="${y}" ${y===curY?'selected':''}>${kiLabel(y)}（${y}年度）</option>`).join('');
   const year = parseInt(yearSel.value) || curY;
   document.getElementById('summaryPeriodLabel').textContent = `${year}年6月 〜 ${year+1}年5月`;
   const range = getPeriodRange(year);
@@ -1070,6 +1070,9 @@ function renderAlerts() {
 function getPeriodYear(d) { const m=d.getMonth()+1; return m>=6?d.getFullYear():d.getFullYear()-1; }
 function getPeriodRange(y) { return {start:new Date(y,5,1), end:new Date(y+1,4,31,23,59,59)}; }
 function getPeriodYears() { const s=new Set([getPeriodYear(new Date())]); state.history.forEach(h=>s.add(getPeriodYear(new Date(h.date)))); return [...s].sort((a,b)=>b-a); }
+// 年度 → 期番号変換（2025年度=57期）
+function fyToKi(fy) { return fy - 1968; }
+function kiLabel(fy) { return `第${fyToKi(fy)}期`; }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function toast(msg, type='info') {
   const c=document.getElementById('toastContainer');
