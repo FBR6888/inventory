@@ -896,17 +896,35 @@ function openAddModal() {
   document.getElementById('f_stock').value='0';
   document.getElementById('itemModal').classList.add('open');
 }
-function openEditModal(id) {
+async function openEditModal(id) {
   const item = state.items.find(i=>i.id===id);
   if (!item) return;
   editingId = id;
   document.getElementById('modalTitle').textContent = '商品編集';
   document.getElementById('f_name').value = item.name;
   document.getElementById('f_category').value = item.category||'';
-  document.getElementById('f_stock').value = item.stock;
   document.getElementById('f_unit').value = item.unit||'';
   document.getElementById('f_alert').value = item.alertThreshold??'';
   document.getElementById('f_note').value = item.note||'';
+
+  // GASから最新在庫を取得してセット
+  let latestStock = item.stock;
+  if (GAS_URL) {
+    try {
+      const res = await fetch(GAS_URL + '?action=loadAll', { redirect: 'follow' });
+      const text = await res.text();
+      const json = JSON.parse(text);
+      if (json && json.ok && json.items) {
+        const latest = json.items.find(i => i.id === id);
+        if (latest) {
+          latestStock = latest.stock;
+          item.stock = latestStock; // ローカルも更新
+          saveLocal();
+        }
+      }
+    } catch(e) {}
+  }
+  document.getElementById('f_stock').value = latestStock;
   document.getElementById('itemModal').classList.add('open');
 }
 async function saveItem() {
