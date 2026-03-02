@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>在庫管理システム</title>
+<title>在庫管理</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -305,24 +305,24 @@ input[type=text]:focus, input[type=number]:focus, select.form-select:focus { bor
 <body>
 
 <!-- Setup Banner -->
-<div id="setupBanner">
+<div id="setupBanner" style="display:none">
   <span class="banner-text" id="bannerText">⚙ GAS URLを設定してください</span>
-  <input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/xxxx/exec" oninput="saveGasUrl()">
+  <input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/xxxx/exec" oninput="saveGasUrl()" style="display:none">
   <span id="syncStatus" class="sync-off">未接続</span>
   <button class="btn btn-ghost btn-sm" onclick="showView('setup')">設定方法</button>
 </div>
 
 <header>
-  <div class="logo">在庫SYS</div>
+  <div class="logo">在庫管理</div>
   <nav>
     <button class="nav-btn active" onclick="showView('inventory')">📦 在庫</button>
     <button class="nav-btn" onclick="showView('history')">📋 履歴</button>
     <button class="nav-btn" onclick="showView('summary')">📊 サマリー</button>
     <button class="nav-btn" onclick="showView('alerts')">🔔 アラート</button>
     <button class="nav-btn" onclick="showView('categories')">🏷 カテゴリ</button>
-    <button class="nav-btn" onclick="showView('setup')">⚙ 設定</button>
   </nav>
   <div class="header-right">
+    <span id="syncStatus" class="sync-off" style="font-size:12px;"></span>
     <span id="alertBadge" class="badge-alert" style="display:none">⚠ 0</span>
     <button class="btn btn-ghost btn-sm" onclick="syncToSheets()">🔄 同期</button>
   </div>
