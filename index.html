@@ -490,6 +490,11 @@ input[type=text]:focus, input[type=number]:focus, select.form-select:focus { bor
       <div style="background:var(--surface2);border-radius:10px;padding:14px;font-size:12px;color:var(--text2);margin-top:8px;">
         💡 URLを貼り付けると「✓ URL設定済み」と表示されます。あとは在庫を操作するたびに自動同期されます。
       </div>
+      <div style="margin-top:20px;padding:16px;background:#fff5f5;border:1px solid #ffc9c9;border-radius:10px;">
+        <h3 style="margin:0 0 8px;font-size:14px;color:var(--danger);">🔄 履歴から在庫を復元</h3>
+        <p style="font-size:12px;color:var(--text2);margin:0 0 12px;">商品データが消えた場合、入出庫履歴から在庫を自動復元できます。</p>
+        <button class="btn btn-danger btn-sm" onclick="restoreFromHistory()">履歴から復元する</button>
+      </div>
     </div>
   </div>
 </main>
@@ -620,14 +625,22 @@ async function loadFromSheets() {
   return false;
 }
 async function syncToSheets() {
-  if (!GAS_URL) { toast('GASのURLを設定してください', 'error'); showView('setup'); return; }
-  toast('🔄 同期中...', 'info');
-  // まず書き込み（自分の変更をスプレッドシートへ）
-  await gasPost({ action:'syncAll', items:state.items });
-  // 次に読み込み（他の人の変更を取得）
+  // 手動同期ボタン：読み込みのみ（スプレッドシート→アプリ）
+  if (!GAS_URL) { toast('GASのURLを設定してください', 'error'); return; }
+  toast('🔄 最新データを取得中...', 'info');
   const loaded = await loadFromSheets();
-  if (loaded) toast('✅ 同期完了！最新データを取得しました', 'success');
-  else toast('✅ スプレッドシートに同期しました', 'success');
+  if (loaded) toast('✅ 最新データを取得しました', 'success');
+  else toast('⚠ データの取得に失敗しました', 'error');
+}
+
+async function uploadToSheets() {
+  // アップロードボタン：書き込み（アプリ→スプレッドシート）※管理者用
+  if (!GAS_URL) return;
+  if (!confirm('アプリのデータをスプレッドシートに上書きします。\nよろしいですか？')) return;
+  toast('📤 アップロード中...', 'info');
+  await gasPost({ action:'syncAll', items:state.items });
+  toast('✅ アップロード完了しました', 'success');
+  updateSyncStatus('ok');
 }
 
 // ===== VIEWS =====
@@ -1151,6 +1164,30 @@ if (state.items.length===0) {
   saveLocal();
 }
 renderStats(); renderInventory();
+
+async function restoreFromHistory() {
+  if (!confirm('入出庫履歴から在庫データを復元します。\n現在の在庫データは上書きされます。よろしいですか？')) return;
+  toast('🔄 履歴から復元中...', 'info');
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain'},
+      body: JSON.stringify({ action: 'restoreFromHistory' }),
+      redirect: 'follow'
+    });
+    const text = await res.text();
+    const json = JSON.parse(text);
+    if (json && json.ok) {
+      toast(`✅ ${json.restored}件の商品を復元しました！`, 'success');
+      await loadFromSheets();
+      showView('inventory');
+    } else {
+      toast(`⚠ 復元失敗: ${json.error || 'エラー'}`, 'error');
+    }
+  } catch(e) {
+    toast('⚠ 復元に失敗しました', 'error');
+  }
+}
 
 // ===== 自動同期（30分おき） =====
 const AUTO_SYNC_INTERVAL = 1 * 60 * 1000; // 1分おき
