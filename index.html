@@ -353,8 +353,8 @@ input[type=text]:focus, input[type=number]:focus, select.form-select:focus { bor
             <th>在庫数</th>
             <th>単位</th>
             <th>閾値</th>
-            <th>入庫</th>
-            <th>出庫</th>
+            <th>納品</th>
+            <th>持ち出し</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -369,8 +369,8 @@ input[type=text]:focus, input[type=number]:focus, select.form-select:focus { bor
       <select id="historyMonth" onchange="renderHistory()"><option value="">全月</option></select>
       <select id="historyType" onchange="renderHistory()">
         <option value="">全種別</option>
-        <option value="in">入庫</option>
-        <option value="out">出庫</option>
+        <option value="in">納品</option>
+        <option value="out">持ち出し</option>
         <option value="edit">編集</option>
         <option value="add">追加</option>
         <option value="delete">削除</option>
@@ -805,20 +805,44 @@ function renderInventory() {
   });
   const tbody = document.getElementById('inventoryBody');
   if (!filtered.length) { tbody.innerHTML=`<tr><td colspan="8"><div class="empty-state"><p>商品がありません。「＋ 追加」から登録してください。</p></div></td></tr>`; return; }
-  tbody.innerHTML = filtered.map(item => {
+  tbody.innerHTML = filtered.map((item, idx) => {
     const st = getStockStatus(item);
     const cls = st==='ok'?'ok':st==='low'?'low':'critical';
-    return `<tr>
+    return `<tr draggable="true" data-id="${item.id}" ondragstart="dragItemStart(event,${item.id})" ondragover="dragItemOver(event)" ondrop="dropItem(event,${item.id})" style="cursor:grab;">
       <td><strong>${esc(item.name)}</strong>${item.note?`<div style="font-size:11px;color:var(--text2)">${esc(item.note)}</div>`:''}</td>
       <td>${item.category?`<span class="cat-tag">${esc(item.category)}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
       <td><span class="stock-num ${cls}">${item.stock}</span>${st==='critical'?` <span class="alert-tag">LOW</span>`:''}</td>
       <td style="color:var(--text2)">${esc(item.unit||'個')}</td>
       <td style="color:var(--text2)">${item.alertThreshold??'—'}</td>
-      <td><div style="display:flex;align-items:center;gap:4px"><input type="number" min="1" class="qty-input" id="in_${item.id}" placeholder="数"><button class="btn btn-success btn-sm" onclick="openStockModal(${item.id},'in')">入庫</button></div></td>
-      <td><div style="display:flex;align-items:center;gap:4px"><input type="number" min="1" class="qty-input" id="out_${item.id}" placeholder="数"><button class="btn btn-danger btn-sm" onclick="openStockModal(${item.id},'out')">出庫</button></div></td>
+      <td><div style="display:flex;align-items:center;gap:4px"><input type="number" min="1" class="qty-input" id="in_${item.id}" placeholder="数"><button class="btn btn-success btn-sm" onclick="openStockModal(${item.id},'in')">納品</button></div></td>
+      <td><div style="display:flex;align-items:center;gap:4px"><input type="number" min="1" class="qty-input" id="out_${item.id}" placeholder="数"><button class="btn btn-danger btn-sm" onclick="openStockModal(${item.id},'out')">持ち出し</button></div></td>
       <td><div class="action-btns"><button class="btn btn-ghost btn-sm" onclick="openEditModal(${item.id})">✏</button><button class="btn btn-danger btn-sm" onclick="deleteItem(${item.id})">🗑</button></div></td>
     </tr>`;
   }).join('');
+}
+
+// ===== 商品並び替え（ドラッグ&ドロップ）=====
+let dragItemId = null;
+function dragItemStart(e, id) {
+  dragItemId = id;
+  e.dataTransfer.effectAllowed = 'move';
+}
+function dragItemOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+function dropItem(e, targetId) {
+  e.preventDefault();
+  if (dragItemId === null || dragItemId === targetId) return;
+  const fromIdx = state.items.findIndex(i => i.id === dragItemId);
+  const toIdx   = state.items.findIndex(i => i.id === targetId);
+  if (fromIdx === -1 || toIdx === -1) return;
+  const moved = state.items.splice(fromIdx, 1)[0];
+  state.items.splice(toIdx, 0, moved);
+  dragItemId = null;
+  saveLocal();
+  renderInventory();
+  toast('✅ 並び替えました', 'info');
 }
 
 // ===== STOCK MODAL =====
@@ -828,7 +852,7 @@ function openStockModal(id, type) {
   const qtyEl = document.getElementById((type==='in'?'in_':'out_') + id);
   const preQty = parseInt(qtyEl?.value) || null;
   stockAction = { id, type, preQty };
-  document.getElementById('stockModalTitle').textContent = type==='in' ? `📥 入庫: ${item.name}` : `📤 出庫: ${item.name}`;
+  document.getElementById('stockModalTitle').textContent = type==='in' ? `📥 納品: ${item.name}` : `📤 持ち出し: ${item.name}`;
   document.getElementById('currentStockDisp').textContent = item.stock;
   document.getElementById('s_qty').value = preQty || '';
   document.getElementById('s_note').value = '';
@@ -836,7 +860,7 @@ function openStockModal(id, type) {
   // 担当者候補
   const persons = [...new Set(state.history.filter(h=>h.person).map(h=>h.person))];
   document.getElementById('personList').innerHTML = persons.map(p=>`<option value="${esc(p)}">`).join('');
-  document.getElementById('stockActionBtn').textContent = type==='in'?'入庫確定':'出庫確定';
+  document.getElementById('stockActionBtn').textContent = type==='in'?'納品確定':'持ち出し確定';
   document.getElementById('stockActionBtn').className = `btn ${type==='in'?'btn-success':'btn-danger'}`;
   document.getElementById('stockModal').classList.add('open');
 }
@@ -882,7 +906,7 @@ async function confirmStock() {
         state.history.unshift(h);
         saveLocal();
         renderStats(); renderInventory();
-        toast(type==='in'?`✅ 入庫: +${qty} ${item.unit||'個'} (${person})`:`📤 出庫: -${qty} ${item.unit||'個'} (${person})`, 'success');
+        toast(type==='in'?`✅ 納品: +${qty} ${item.unit||'個'} (${person})`:`📤 持ち出し: -${qty} ${item.unit||'個'} (${person})`, 'success');
         return;
       } else if (json && !json.ok) {
         toast(`⚠ ${json.error || '更新に失敗しました'}`, 'error');
@@ -899,7 +923,7 @@ async function confirmStock() {
   state.history.unshift(h);
   saveLocal();
   renderStats(); renderInventory();
-  toast(type==='in'?`✅ 入庫: +${qty} ${item.unit||'個'} (${person})`:`📤 出庫: -${qty} ${item.unit||'個'} (${person})`, 'success');
+  toast(type==='in'?`✅ 納品: +${qty} ${item.unit||'個'} (${person})`:`📤 持ち出し: -${qty} ${item.unit||'個'} (${person})`, 'success');
 }
 
 // ===== ITEM MODAL =====
@@ -1011,7 +1035,7 @@ function renderHistory() {
     if (pf && h.person!==pf) return false;
     return true;
   });
-  const typeL={in:'入庫',out:'出庫',edit:'編集',add:'追加',delete:'削除'};
+  const typeL={in:'納品',out:'持ち出し',edit:'編集',add:'追加',delete:'削除'};
   const typeC={in:'in',out:'out',edit:'edit',add:'add',delete:'delete'};
   const tbody=document.getElementById('historyBody');
   if (!filtered.length) { tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><p>履歴がありません</p></div></td></tr>`; return; }
