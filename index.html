@@ -547,7 +547,11 @@ const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbyjf-yFlzvvfCv3
 let GAS_URL = DEFAULT_GAS_URL;
 
 // ===== STORAGE =====
-function saveLocal() { localStorage.setItem('inv_v3', JSON.stringify(state)); }
+function saveLocal() {
+  localStorage.setItem('inv_v3', JSON.stringify(state));
+  // 並び順を別途保存（IDの配列）
+  localStorage.setItem('inv_v3_order', JSON.stringify(state.items.map(i => i.id)));
+}
 function loadLocal() {
   const d = localStorage.getItem('inv_v3');
   if (d) { try { state = JSON.parse(d); } catch(e) {} }
@@ -560,6 +564,22 @@ function loadLocal() {
     document.getElementById('gasUrlInput').value = GAS_URL;
     setBannerConnected();
   }
+}
+// 保存された並び順でitemsを並べ替える
+function applySavedOrder(items) {
+  const orderStr = localStorage.getItem('inv_v3_order');
+  if (!orderStr) return items;
+  try {
+    const order = JSON.parse(orderStr);
+    const ordered = [];
+    order.forEach(id => {
+      const item = items.find(i => i.id === id);
+      if (item) ordered.push(item);
+    });
+    // 並び順に含まれていない新商品は末尾に追加
+    items.forEach(i => { if (!order.includes(i.id)) ordered.push(i); });
+    return ordered;
+  } catch(e) { return items; }
 }
 function saveGasUrl() {
   GAS_URL = document.getElementById('gasUrlInput').value.trim();
@@ -631,6 +651,9 @@ async function loadFromSheets() {
 
       // シートに新しく追加された商品を末尾に追加
       Object.values(sheetMap).forEach(i => state.items.push(i));
+
+      // 保存された並び順を適用
+      state.items = applySavedOrder(state.items);
 
       state.history = json.history || [];
       state.nextId  = json.nextId  || 1;
