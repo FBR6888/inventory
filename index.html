@@ -613,7 +613,25 @@ async function loadFromSheets() {
     const text = await res.text();
     let json; try { json = JSON.parse(text); } catch(e) { json = null; }
     if (json && json.ok && json.items) {
-      state.items   = json.items;
+      // ローカルの並び順を維持しつつ在庫数・情報を最新に更新
+      const sheetMap = {};
+      json.items.forEach(i => { sheetMap[i.id] = i; });
+
+      // ローカルにある商品は在庫数などを更新（順番はそのまま）
+      state.items = state.items.map(local => {
+        const latest = sheetMap[local.id];
+        if (latest) {
+          delete sheetMap[local.id]; // 処理済みを除外
+          return { ...local, stock: latest.stock, name: latest.name,
+                   category: latest.category, unit: latest.unit,
+                   alertThreshold: latest.alertThreshold, note: latest.note };
+        }
+        return local;
+      }).filter(i => json.items.find(s => s.id === i.id)); // シートに存在しない商品は除外
+
+      // シートに新しく追加された商品を末尾に追加
+      Object.values(sheetMap).forEach(i => state.items.push(i));
+
       state.history = json.history || [];
       state.nextId  = json.nextId  || 1;
       saveLocal();
@@ -843,6 +861,8 @@ function dropItem(e, targetId) {
   saveLocal();
   renderInventory();
   toast('✅ 並び替えました', 'info');
+  // 並び順をスプレッドシートに反映
+  if (GAS_URL) gasPost({ action:'syncAll', items:state.items });
 }
 
 // ===== STOCK MODAL =====
